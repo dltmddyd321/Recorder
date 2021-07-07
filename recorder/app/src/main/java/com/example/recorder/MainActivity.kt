@@ -12,6 +12,14 @@ import java.util.jar.Manifest
 
 class MainActivity : AppCompatActivity() {
 
+    private val soundVisualizerView: SoundVisualizerView by lazy {
+        findViewById(R.id.visual)
+    }
+
+    private val recordTimeTextView: CountUpView by lazy {
+        findViewById(R.id.recordTimeTextView)
+    }
+
     private val resetButton: Button by lazy {
         findViewById(R.id.resetButton)
     }
@@ -81,6 +89,9 @@ class MainActivity : AppCompatActivity() {
             prepare() //녹음을 할 수 있는 준비 상태 선언
         }
         recorder?.start()
+        soundVisualizerView.startVisualizing(false)
+        //레코딩 중엔 리플레이가 아니므로 false 전달
+        recordTimeTextView.startCountUp()
         state = State.ON_RECORDING
         //녹음 시작
     }
@@ -91,6 +102,8 @@ class MainActivity : AppCompatActivity() {
             release()
         }
         recorder = null
+        soundVisualizerView.stopVisualizing()
+        recordTimeTextView.stopCountUp()
         state = State.AFTER_RECORDING
     } //녹음 정지
 
@@ -100,7 +113,14 @@ class MainActivity : AppCompatActivity() {
                 setDataSource(recordingFilePath)
                 prepare()
             }
+        player?.setOnCompletionListener {
+            //입력받은 파일을 전부 재생했을 때의 처리
+            stopPlaying()
+            state = AFTER_RECORDING
+        }
         player?.start()
+        soundVisualizerView.startVisualizing(true)
+        recordTimeTextView.startCountUp()
         state = State.ON_PLAYING
         //녹음된 파일을 Cache 저장 경로를 통해 불러와 재생
     }
@@ -108,14 +128,23 @@ class MainActivity : AppCompatActivity() {
     private fun stopPlaying(){
         player?.release()
         player = null
+        soundVisualizerView.stopVisualizing()
+        recordTimeTextView.stopCountUp()
         state = State.AFTER_RECORDING
         //녹음 파일 재생 종료
     }
 
     private fun bindViews() {
         //상태별 애플리케이션 동작에 대한 함수를 지정하여 관리의 용이성을 높임
+        soundVisualizerView.onRequestCurrentAmplitude = {
+            recorder?.maxAmplitude ?: 0
+        } //현재 사운드의 maxAmp 값을 반환
         resetButton.setOnClickListener { //Reset 버튼 구현
             stopPlaying()
+            soundVisualizerView.clearVisualization()
+            //시각화 초기화
+            recordTimeTextView.clearCountTime()
+            //시간 기록 초기화
             state = State.BEFORE_RECORDING
         }
         recordButton.setOnClickListener {
